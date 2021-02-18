@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31005.135
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "heartbeat-function-app", "heartbeat-function-app.csproj", "{60974A27-FAFE-4290-9D2B-55E9A8B2E63B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{60974A27-FAFE-4290-9D2B-55E9A8B2E63B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{60974A27-FAFE-4290-9D2B-55E9A8B2E63B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{60974A27-FAFE-4290-9D2B-55E9A8B2E63B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{60974A27-FAFE-4290-9D2B-55E9A8B2E63B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B4E92BC0-660D-43E3-A660-7C2EF46D18B1}
+	EndGlobalSection
+EndGlobal
