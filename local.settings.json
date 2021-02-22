@@ -3,9 +3,12 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
-    "Queue_Name": "<Place test queue name here>"
+    "Queue_Name": "<Place test queue name here>",
+    "Availability_Table_Name": "<Place test table name here>",
+    "Fault_Table_Name": "<Place test table name here>"
   },
   "ConnectionStrings": {
-    "Queue_Connection_String": "<Place test connection string here>"
+    "Queue_Connection_String": "<Place test connection string here>",
+    "Table_Connection_String": "<Place test connection string here>"
   }
 }
