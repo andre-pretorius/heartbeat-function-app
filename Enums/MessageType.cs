@@ -4,6 +4,7 @@
     {
         Unknown = 0,
         Availability,
+        Event,
         Fault
     }
 }

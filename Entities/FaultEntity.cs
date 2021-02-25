@@ -13,23 +13,32 @@ namespace heartbeat_function_app.Entities
             string firmId,
             string componentId,
             string time,
-            string eventCode,
-            string eventTitle,
-            string eventDescription
+            string faultCode,
+            string faultTitle,
+            string faultDescription,
+            string applicationInformation,
+            string databaseInformation,
+            string firmName
         )
         {
             PartitionKey = $"{firmId} {componentId}";
             RowKey = time;
-            EventCode = eventCode;
-            EventTitle = eventTitle;
-            EventDescription = eventDescription;
+            FaultCode = faultCode;
+            FaultTitle = faultTitle;
+            FaultDescription = faultDescription;
+            ApplicationInformation = applicationInformation;
+            DatabaseInformation = databaseInformation;
             FirmId = firmId;
+            FirmName = firmName;
         }
 
-        public string EventCode { get; set; }
-        public string EventTitle { get; set; }
-        public string EventDescription { get; set; }
+        public string FaultCode { get; set; }
+        public string FaultTitle { get; set; }
+        public string FaultDescription { get; set; }
+        public string ApplicationInformation { get; set; }
+        public string DatabaseInformation { get; set; }
         public string FirmId { get; set; }
+        public string FirmName { get; set; }
 
     }
 }

@@ -23,16 +23,52 @@ namespace heartbeat_function_app
         {
             log.LogInformation("EventLogProcessor triggered by queue");
 
-            //Verify Key
+            var messageContainer = messageContainerString.ParseMessage();
 
-            var firmName = "firm name";
+            var updateFirmPaused = false;
 
-            await RouteMessage(new MessageContainer(messageContainerString), binder, firmName);
+            //Verify Key, respond with firmId & firmName
+
+            var key = messageContainer.ValidationKey;
+
+            var firmId = "120";
+
+            var firmName = "firm name 4";
+
+            //Provision
+
+            var firm = await FirmCommon.FindFirm(binder, log, firmId);
+
+            if (firm == null)
+            {
+                await FirmCommon.CreateFirm(binder, log, firmId, firmName);
+            }
+            else
+            {
+                updateFirmPaused = firm.UpdatesPaused;
+
+                //Rename firm if changed
+
+                if (firm.HasChanged(firmName))
+                {
+                    await FirmCommon.UpdateFirm(binder, log, firm, firmName);
+                }
+            }
+
+            if (updateFirmPaused) return;
+
+            //Process Message
+
+            await RouteMessage(messageContainer, binder, log, firmName);
         }
 
-        private static async Task RouteMessage(MessageContainer messageContainer, IBinder binder, string firmName)
+        private static async Task RouteMessage(MessageContainer messageContainer, IBinder binder, ILogger log, string firmName)
         {
+            var updateComponentPaused = false;
+
             var messageType = messageContainer.MessageType;
+
+            var payload = messageContainer.MessagePayload;
 
             var time = AvailabilityCommon.GetTimeKey(out var interval);
 
@@ -40,7 +76,36 @@ namespace heartbeat_function_app
             {
                 case MessageType.Availability:
 
-                    var availabilityMessage = JsonSerializer.Deserialize<AvailabilityMessage>(messageContainer.MessagePayload);
+                    var availabilityMessage = JsonSerializer.Deserialize<AvailabilityMessage>(payload);
+
+                    var firmId = availabilityMessage.FirmId;
+
+                    var componentId = availabilityMessage.ComponentId;
+
+                    var componentName = availabilityMessage.ComponentName;
+
+                    var componentVersion = availabilityMessage.ComponentVersion;
+
+                    var firmComponent = await FirmComponentCommon.FindFirmComponent(binder, log, firmId, componentId);
+
+                    if (firmComponent == null)
+                    {
+                        await FirmComponentCommon.CreateFirmComponent(binder, log, firmId, componentId, componentName, componentVersion, firmName);
+                    }
+                    else
+                    {
+                        updateComponentPaused = firmComponent.UpdatesPaused;
+
+                        //Update component if changed
+                        //Rename firm on component if changed
+
+                        if (firmComponent.HasChanged(componentName, componentVersion, firmName))
+                        {
+                            await FirmComponentCommon.UpdateFirmComponent(binder, log, firmComponent, componentName, componentVersion, firmName);
+                        }
+                    }
+
+                    if (updateComponentPaused) return;
 
                     var availabilityEntity = new AvailabilityEntity(
                         availabilityMessage.FirmId,
@@ -51,33 +116,56 @@ namespace heartbeat_function_app
                         availabilityMessage.ComponentVersion,
                         firmName);
 
-                    await TableStore.WriteAvailabilityOperation_Insert(binder, availabilityEntity);
+                    await TableStore.Operation_Insert(binder, availabilityEntity, log, "%Availability_Table_Name%");
+
+                    break;
+
+                case MessageType.Event:
+
+                    var eventMessage = JsonSerializer.Deserialize<EventMessage>(payload);
+
+                    var eventEntity = new EventEntity(
+                        eventMessage.FirmId,
+                        eventMessage.ComponentId,
+                        time,
+                        eventMessage.EventCode,
+                        eventMessage.EventTitle,
+                        eventMessage.EventDescription,
+                        firmName);
+
+                    await TableStore.Operation_Insert(binder, eventEntity, log, "%Event_Table_Name%");
 
                     break;
 
                 case MessageType.Fault:
 
-                    var faultMessage = JsonSerializer.Deserialize<FaultMessage>(messageContainer.MessagePayload);
+                    var faultMessage = JsonSerializer.Deserialize<FaultMessage>(payload);
 
-                    var fault = new FaultEntity(
+                    var faultEntity = new FaultEntity(
                         faultMessage.FirmId,
                         faultMessage.ComponentId,
                         time,
-                        faultMessage.EventCode,
-                        faultMessage.EventTitle,
-                        faultMessage.EventDescription);
+                        faultMessage.FaultCode,
+                        faultMessage.FaultTitle,
+                        faultMessage.FaultDescription,
+                        faultMessage.ApplicationInformation,
+                        faultMessage.DatabaseInformation,
+                        firmName);
 
-                    await TableStore.WriteFaultOperation_Insert(binder, fault);
+                    await TableStore.Operation_Insert(binder, faultEntity, log, "%Fault_Table_Name%");
 
                     break;
 
                 case MessageType.Unknown:
                 default:
-                    //Write to Poison Queue
+                    //Todo Write to Poison Queue
+                    log.LogInformation("Message Rejected");
                     break;
             }
         }
 
         
+
+        
     }
-}
+} 
