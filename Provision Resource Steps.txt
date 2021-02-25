@@ -163,6 +163,18 @@ az functionapp config appsettings set
  --slot staging
  --settings "Queue_Name=heartbeatstoragequeue"
  
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Firm_Table_Name=heartbeattablefirm"
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "FirmComponent_Table_Name=heartbeattablefirmcomponent"
+ 
 az webapp config connection-string set 
  --name heartbeatfunctionapp
  --resource-group heartbeatresourcegroup
@@ -183,7 +195,13 @@ az functionapp config appsettings set
  --slot staging
  --settings "Availability_Table_Name=heartbeattableavailability"
  
- az functionapp config appsettings set 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Event_Table_Name=heartbeattableevent"
+ 
+az functionapp config appsettings set 
  --name heartbeatfunctionapp
  --resource-group heartbeatresourcegroup
  --slot staging
@@ -205,7 +223,25 @@ Lock down staging for external access (We should limit to SCM page lock down)
 Create Storage account table:
 
 az storage table create 
+ --name heartbeattablefirm
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+az storage table create 
+ --name heartbeattablefirmcomponent
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+
+az storage table create 
  --name heartbeattableavailability
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+az storage table create 
+ --name heartbeattableevent
  --account-name heartbeatstorageaccount
  --account-key ***StorageAccout.AccessKeys.Key1/2***
  --subscription Andre\'s\ subscription
