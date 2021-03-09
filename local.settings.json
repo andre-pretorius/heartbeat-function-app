@@ -3,9 +3,16 @@
   "Values": {
     "AzureWebJobsStorage": "UseDevelopmentStorage=true",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
-    "Queue_Name": "<Place test queue name here>"
+    "Queue_Name": "<Placeholder>",
+    "Firm_Table_Name": "<Placeholder>",
+    "FirmComponent_Table_Name": "<Placeholder>",
+    "Availability_Table_Name": "<Placeholder>",
+    "Event_Table_Name": "<Placeholder>",
+    "Fault_Table_Name": "<Placeholder>",
+    "Log_Processor_Exception_Table_Name": "<Placeholder>"
   },
   "ConnectionStrings": {
-    "Queue_Connection_String": "<Place test connection string here>"
+    "Queue_Connection_String": "<Placeholder>",
+    "Table_Connection_String": "<Placeholder>"
   }
 }

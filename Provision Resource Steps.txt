@@ -1,0 +1,406 @@
+Create Resource group:
+
+az group create
+ --name heartbeatresourcegroup
+ --location canadacentral 
+ --subscription Andre\'s\ subscription
+
+Notes: Change subscription name & location
+
+Create Storage account:
+
+az storage account create 
+ --name heartbeatstorageaccount
+ --resource-group heartbeatresourcegroup
+ --access-tier Hot
+ --allow-blob-public-access false
+ --bypass AzureServices
+ --default-action Allow
+ --https-only true
+ --kind StorageV2
+ --location canadacentral
+ --min-tls-version TLS1_2
+ --routing-choice MicrosoftRouting
+ --sku Standard_LRS
+ --subscription Andre\'s\ subscription
+
+Create Storage account queue:
+
+az storage queue create 
+ --name heartbeatstoragequeue
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --auth-mode key
+ --fail-on-exist
+ --subscription Andre\'s\ subscription
+ 
+Create policy for SAS Token
+
+az storage queue policy create 
+ --name heartbeatstoragequeuesastokenpolicy
+ --queue-name heartbeatstoragequeue
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --permissions a
+ --subscription Andre\'s\ subscription
+ --expiry 2030-01-01T00:00Z
+
+Create Storage Queue SAS Token
+
+az storage queue generate-sas 
+ --name heartbeatstoragequeue
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --policy-name heartbeatstoragequeuesastokenpolicy
+ --subscription Andre\'s\ subscription
+ 
+ Produces SAS token: "sv=2018-03-28&si=heartbeatstoragequeuesastokenpolicy&sig=A5qoGPp7gYAp1zDz703xzNATG4p2UzJkODcLNkl8l8A%3D"
+ Use in client
+ 
+ Setup GitHub for Autodeployment to function app via portal.
+ 
+ ====================================================================SKIP
+ Generate SSH deployment key for function app to push to Github
+ https://docs.github.com/en/github/authenticating-to-github/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#generating-a-new-ssh-key
+ -> run in GitBash on windows
+ 
+ ssh-keygen -t ed25519 -C "mailgriddy@gmail.com"
+ 
+ -> Open file that key was saved in withouta pass phrase for example keyFile.pub. Key will start with ssh-ed25519 AAAA....
+ -> Open Function App Github repo in web -> Settings -> Deployment keys and add the key
+ -> Produced key AAAAC3NzaC1lZDI1NTE5AAAAIOVgyfP1rDqbK3sHGjMsmwGFnsnR9WM+RRKWYcs2LNEL
+ ====================================================================
+ 
+ Create Personal Access Token (PAT) for GitHub CI
+ https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
+ 
+ -> Generate Personal access token: 897c5bc8477b519919a7340902caa5752ccb47f6
+ 
+ 
+ Create Function App (Used for grouping of functions, consumption tier)
+ 
+ -> To lookup consumption locations: az functionapp list-consumption-locations
+ 
+ -> use gitrepo=https://github.com/griddy777/heartbeat-function-app
+ 
+ -> use PAT token=897c5bc8477b519919a7340902caa5752ccb47f6
+
+az functionapp create 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --storage-account heartbeatstorageaccount
+ --consumption-plan-location canadacentral
+ --runtime dotnet
+ --disable-app-insights
+ --functions-version 3
+ --os-type Windows
+ --subscription Andre\'s\ subscription
+ --deployment-source-url $gitrepo ####LEAVE OUT IF YOU WILL LINK TO GITHUB LATER####
+ --deployment-source-branch master ####LEAVE OUT IF YOU WILL LINK TO GITHUB LATER####
+ 
+az functionapp config set
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --min-tls-version '1.2'
+ 
+az functionapp update  
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --set httpsOnly=true
+ 
+az functionapp config access-restriction add 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --rule-name denyAll 
+ --description 'Base rule to deny all access'
+ --action Deny 
+ --ip-address 0.0.0.0/0
+ --priority 1001
+ --scm-site false
+ 
+ az functionapp config access-restriction add 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --rule-name denyAll 
+ --description 'Base rule to deny all access'
+ --action Deny 
+ --ip-address 0.0.0.0/0
+ --priority 1001
+ --scm-site true
+ 
+Link to Github for manual integration - link staging to github
+
+az functionapp deployment slot create 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --subscription Andre\'s\ subscription
+ 
+az functionapp deployment source update-token 
+ --git-token 897c5bc8477b519919a7340902caa5752ccb47f6+RRKWYcs2LNEL
+ 
+az webapp deployment source config 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --manual-integration
+ --branch master
+ --repo-url <gith url> 
+ --slot staging
+
+ Consider blocking staging sites?
+ 
+Add publish profile to Repo
+ 
+ -> On Staging Function app, download publish profile
+ -> In VS, Publish -> Import -> Select PublishSettings file
+ -> Publish to Staging slot
+ 
+Add settings to FunctionApp
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Queue_Name=heartbeatstoragequeue"
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Firm_Table_Name=heartbeattablefirm"
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "FirmComponent_Table_Name=heartbeattablefirmcomponent"
+ 
+az webapp config connection-string set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --connection-string-type SQLServer
+ --settings "Queue_Connection_String=DefaultEndpointsProtocol=https;AccountName=heartbeatstorageaccount;AccountKey=4FcwiCLjMVRqKAkHuOC8nIrahaH0odhs+3pDTwFjzT0k0afhuAoA9d+XJGb3Rcvf9mgmUzBhZE2/ikD6mLieFA==;EndpointSuffix=core.windows.net"
+ 
+ az webapp config connection-string set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --connection-string-type SQLServer
+ --settings "Table_Connection_String=DefaultEndpointsProtocol=https;AccountName=heartbeatstorageaccount;AccountKey=4FcwiCLjMVRqKAkHuOC8nIrahaH0odhs+3pDTwFjzT0k0afhuAoA9d+XJGb3Rcvf9mgmUzBhZE2/ikD6mLieFA==;EndpointSuffix=core.windows.net"
+
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Availability_Table_Name=heartbeattableavailability"
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Event_Table_Name=heartbeattableevent"
+ 
+az functionapp config appsettings set 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --slot staging
+ --settings "Fault_Table_Name=heartbeattablefault"
+ 
+Lock down staging for external access (We should limit to SCM page lock down)
+ 
+ az functionapp config access-restriction add 
+ --name heartbeatfunctionapp
+ --resource-group heartbeatresourcegroup
+ --rule-name denyAll 
+ --description 'Base rule to deny all access'
+ --action Deny 
+ --ip-address 0.0.0.0/0
+ --priority 1001
+ --scm-site true
+ --slot staging
+ 
+Create Storage account table:
+
+az storage table create 
+ --name heartbeattablefirm
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+az storage table create 
+ --name heartbeattablefirmcomponent
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+
+az storage table create 
+ --name heartbeattableavailability
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+az storage table create 
+ --name heartbeattableevent
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+az storage table create 
+ --name heartbeattablefault
+ --account-name heartbeatstorageaccount
+ --account-key ***StorageAccout.AccessKeys.Key1/2***
+ --subscription Andre\'s\ subscription
+ 
+ ====================================================================================================
+ 
+ ======================================Generate SAS KEY FOR QUEUE From Key Vault=============================================== Skip
+ https://docs.microsoft.com/en-us/azure/key-vault/secrets/overview-storage-keys#manage-storage-account-keys
+ 
+ Delete Key vault if it was soft-deleted: 
+ 
+az keyvault purge
+ --name heartbeatkeyvault
+ 
+ Create Key Vault
+ 
+az keyvault create 
+ --resource-group heartbeatresourcegroup
+ --default-action Deny
+ --location canadacentral
+ --name heartbeatkeyvault
+ --sku standard
+ --subscription Andre\'s\ subscription
+ 
+ Grant KeyVault Identity access to the storage account
+ 
+az role assignment create 
+ --role "Storage Account Key Operator Service Role" 
+ --assignee 'https://vault.azure.net'
+ --scope "/subscriptions/<subscriptionID>/resourceGroups/<StorageAccountResourceGroupName>/providers/Microsoft.Storage/storageAccounts/<YourStorageAccountName>"
+ 
+  FOR EXAMPLE
+ 
+az role assignment create 
+ --role "Storage Account Key Operator Service Role" 
+ --assignee 'https://vault.azure.net'
+ --scope "/subscriptions/a3155ad9-7148-4527-99ae-ce93da4d2f66/resourceGroups/heartbeatresourcegroup/providers/Microsoft.Storage/storageAccounts/heartbeatstorageaccount"
+ 
+ Open up Vault to public CLI commands:
+ Portal: KeyVault.Networking - allow access to all networks (we will switch this back to private) 
+ 
+  Create a Key Vault managed storage account - requires the keyvault and storageAccount to exist
+ 
+ az keyvault storage add 
+  --vault-name <YourKeyVaultName> 
+  -n <YourStorageAccountName> 
+  --active-key-name key1 (name of key used, not the key itself)
+  --auto-regenerate-key 
+  --regeneration-period P90D 
+  --resource-id "/subscriptions/<subscriptionID>/resourceGroups/<StorageAccountResourceGroupName>/providers/Microsoft.Storage/storageAccounts/<YourStorageAccountName>"
+ 
+ FOR Example, resource-id copied from table storageAccount-Properties-Storage account resource ID
+ 
+az keyvault storage add
+ --vault-name heartbeatkeyvault
+ --name heartbeatstorageaccount
+ --active-key-name key1
+ --auto-regenerate-key true
+ --regeneration-period P30D
+ --resource-id "/subscriptions/a3155ad9-7148-4527-99ae-ce93da4d2f66/resourceGroups/heartbeatresourcegroup/providers/Microsoft.Storage/storageAccounts/heartbeatstorageaccount"
+ --disabled false
+ --subscription Andre\'s\ subscription
+ 
+ Create a shared access signature token
+ 
+az storage account generate-sas 
+ --expiry 2020-01-01 (We only need this to be active for the SAS definition generation???)
+ --permissions rw 
+ --resource-types sco 
+ --services bfqt 
+ --https-only 
+ --account-name <YourStorageAccountName> 
+ --account-key 00000000
+ 
+ FOR Example
+ 
+az storage account generate-sas 
+ --expiry 2021-02-18
+ --permissions a
+ --resource-types s 
+ --services q
+ --https-only
+ --account-name heartbeatstorageaccount
+ --account-key 00000000
+ --subscription Andre\'s\ subscription
+ 
+ Produces signature: "se=2021-02-18&sp=a&spr=https&sv=2018-03-28&ss=q&srt=s&sig=BXdBmnhK3wdlYRy0NUk/l6phHa%2BSsxjPFZqLzKDVLDU%3D"
+ 
+ Generate a shared access signature definition
+
+az keyvault storage sas-definition create 
+ --vault-name heartbeatkeyvault
+ --account-name <YourStorageAccountName>
+ --name <YourSASDefinitionName>
+ --sas-type account
+ --template-uri <OutputOfSasTokenCreationStep> ... for services (use Service URL?token and remove &ss=q)
+ --validity-period P2D 
+ 
+ FOR Example
+ 
+az keyvault storage sas-definition create
+ --vault-name heartbeatkeyvault
+ --account-name heartbeatstorageaccount
+ --name heartbeatstorageaccountsasdef
+ --sas-type service
+ --template-uri "https://heartbeatstorageaccount.queue.core.windows.net/heartbeatstoragequeue?se=2021-02-18&sp=a&spr=https&sv=2018-03-28&srt=s&sig=BXdBmnhK3wdlYRy0NUk/l6phHa%2BSsxjPFZqLzKDVLDU%3D"
+ --validity-period P2D
+ --subscription Andre\'s\ subscription
+ 
+ Produced
+ 
+ {
+  "attributes": {
+    "created": "2021-02-17T10:25:20+00:00",
+    "enabled": true,
+    "recoveryLevel": "Recoverable+Purgeable",
+    "updated": "2021-02-17T10:25:20+00:00"
+  },
+  "id": "https://heartbeatkeyvault.vault.azure.net/storage/heartbeatstorageaccount/sas/heartbeatstorageaccountsasdef",
+  "sasType": "service",
+  "secretId": "https://heartbeatkeyvault.vault.azure.net/secrets/heartbeatstorageaccount-heartbeatstorageaccountsasdef",
+  "tags": null,
+  "templateUri": "https://heartbeatstorageaccount.queue.core.windows.net/heartbeatstoragequeue?se=2021-02-18&sp=a&spr=https&sv=2018-03-28&srt=s&sig=BXdBmnhK3wdlYRy0NUk/l6phHa%2BSsxjPFZqLzKDVLDU%3D",
+  "validityPeriod": "P2D"
+}
+ 
+ Verify the shared access signature definition (OPTIONAL)
+ 
+az keyvault storage sas-definition show 
+ --id https://<YourKeyVaultName>.vault.azure.net/storage/<YourStorageAccountName>/sas/<YourSASDefinitionName>
+ 
+ FOR Example, use sas-definition Id property
+ 
+az keyvault storage sas-definition show 
+ --id https://heartbeatkeyvault.vault.azure.net/storage/heartbeatstorageaccount/sas/heartbeatstorageaccountsasdef
+ 
+ Produced
+ 
+ {
+  "attributes": {
+    "created": "2021-02-17T10:25:20+00:00",
+    "enabled": true,
+    "recoveryLevel": "Recoverable+Purgeable",
+    "updated": "2021-02-17T10:25:20+00:00"
+  },
+  "id": "https://heartbeatkeyvault.vault.azure.net/storage/heartbeatstorageaccount/sas/heartbeatstorageaccountsasdef",
+  "sasType": "service",
+  "secretId": "https://heartbeatkeyvault.vault.azure.net/secrets/heartbeatstorageaccount-heartbeatstorageaccountsasdef",
+  "tags": null,
+  "templateUri": "https://heartbeatstorageaccount.queue.core.windows.net/heartbeatstoragequeue?se=2021-02-18&sp=a&spr=https&sv=2018-03-28&srt=s&sig=BXdBmnhK3wdlYRy0NUk/l6phHa%2BSsxjPFZqLzKDVLDU%3D",
+  "validityPeriod": "P2D"
+ }
+ 
+
+  ====================================================================================================
+ 
