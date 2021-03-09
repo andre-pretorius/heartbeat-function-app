@@ -34,7 +34,7 @@ namespace heartbeat_function_app.Common
 
             var updateComponentPaused = false;
 
-            var firmComponent = await FindFirmComponent(binder, log, firmId, componentId);
+            var firmComponent = await GetFirmComponent(binder, log, firmId, componentId);
 
             if (firmComponent == null)
             {
@@ -75,7 +75,7 @@ namespace heartbeat_function_app.Common
             return updateComponentPaused;
         }
        
-        private static async Task<FirmComponentEntity> FindFirmComponent(IBinder binder, ILogger log, string firmId, string componentId)
+        public static async Task<FirmComponentEntity> GetFirmComponent(IBinder binder, ILogger log, string firmId, string componentId)
         {
             return await TableStore.Operation_Read_One<FirmComponentEntity>(binder, log, "%FirmComponent_Table_Name%", firmId, componentId);
         }
@@ -124,32 +124,139 @@ namespace heartbeat_function_app.Common
                      && entityFirmName.Equals(firmName));
         }
 
-        private static async Task<List<FirmComponentEntity>> Find(IBinder binder, ILogger log)
+        public static async Task PerformResetFlagsForAllFirms(Binder binder, ILogger log)
         {
-            const string operationDescription = "Find operation";
+            var firmComponents = new List<FirmComponentEntity>();
 
-            var tableName = "%Firm_Table_Name%";
+            var modifiedFirmComponents = new List<FirmComponentEntity>();
 
-            Expression<Func<FirmComponentEntity, bool>> expression = i => i.AvailabilityMissedSinceCleared;
+            //Fetch all firms
+            var activeFirmIdList = await FirmTableStore.FetchFirmIds(binder, log);
 
-            try
+            if (!activeFirmIdList.Any()) return;
+
+            //Fetch all firm components
+            foreach (var activeFirmId in activeFirmIdList)
             {
-                var table = await binder.BindAsync<CloudTable>(new TableAttribute(tableName)
-                    { Connection = "Table_Connection_String" });
+                var firmComponentBatch = await FirmComponentTableStore.FetchFirmComponentsByFirm(binder, log, activeFirmId);
 
-                return table
-                    .CreateQuery<FirmComponentEntity>()
-                    .AsQueryable()
-                    .Where(expression)
-                    .ToList();
+                firmComponents.AddRange(firmComponentBatch);
             }
-            catch (Exception e)
+
+            //Update all firm components
+            foreach (var firmComponent in firmComponents)
             {
-                log.LogInformation($"{operationDescription}: {e.Message}");
+                var changed = false;
 
-                //Todo Fail action
+                var availabilityMissedForLastInterval = false;
+                var availabilityMissedSinceCleared = false;
+                var errorCountSinceCleared = 0;
 
-                throw;
+                changed = !(firmComponent.AvailabilityMissedForLastInterval == availabilityMissedForLastInterval &&
+                            firmComponent.AvailabilityMissedSinceCleared == availabilityMissedSinceCleared &&
+                            firmComponent.ErrorCountSinceCleared == errorCountSinceCleared);
+
+                if (changed)
+                {
+                    firmComponent.AvailabilityMissedForLastInterval = availabilityMissedForLastInterval;
+                    firmComponent.AvailabilityMissedSinceCleared = availabilityMissedSinceCleared;
+                    firmComponent.ErrorCountSinceCleared = errorCountSinceCleared;
+
+                    modifiedFirmComponents.Add(firmComponent);
+                }
+
+            }
+
+            if (!modifiedFirmComponents.Any()) return;
+
+            //Update Components per firm
+            await PerformBatchUpdateForFirmComponents(binder, log, activeFirmIdList, modifiedFirmComponents);
+        }
+
+        public static async Task PerformResetFlagsForAFirm(Binder binder, ILogger log, string firmId)
+        {
+
+            var modifiedFirmComponents = new List<FirmComponentEntity>();
+
+            var firmComponents = await FirmComponentTableStore.FetchFirmComponentsByFirm(binder, log, firmId);
+
+            //Update all firm components
+            foreach (var firmComponent in firmComponents)
+            {
+                var changed = false;
+
+                var availabilityMissedForLastInterval = false;
+                var availabilityMissedSinceCleared = false;
+                var errorCountSinceCleared = 0;
+
+                changed = !(firmComponent.AvailabilityMissedForLastInterval == availabilityMissedForLastInterval &&
+                            firmComponent.AvailabilityMissedSinceCleared == availabilityMissedSinceCleared &&
+                            firmComponent.ErrorCountSinceCleared == errorCountSinceCleared);
+
+                if (changed)
+                {
+                    firmComponent.AvailabilityMissedForLastInterval = availabilityMissedForLastInterval;
+                    firmComponent.AvailabilityMissedSinceCleared = availabilityMissedSinceCleared;
+                    firmComponent.ErrorCountSinceCleared = errorCountSinceCleared;
+
+                    modifiedFirmComponents.Add(firmComponent);
+                }
+
+            }
+
+            if (!modifiedFirmComponents.Any()) return;
+
+            //Update Components per firm
+            await PerformBatchUpdateForFirmComponents(binder, log, new List<string> { firmId }, modifiedFirmComponents);
+        }
+
+        public static async Task PerformResetFlagsForAFirmComponent(Binder binder, ILogger log, string firmId, string componentId)
+        {
+            var firmComponent = await FirmComponentCommon.GetFirmComponent(binder, log, firmId, componentId);
+
+            var changed = false;
+
+            var availabilityMissedForLastInterval = false;
+            var availabilityMissedSinceCleared = false;
+            var errorCountSinceCleared = 0;
+
+            changed = !(firmComponent.AvailabilityMissedForLastInterval == availabilityMissedForLastInterval &&
+                        firmComponent.AvailabilityMissedSinceCleared == availabilityMissedSinceCleared &&
+                        firmComponent.ErrorCountSinceCleared == errorCountSinceCleared);
+
+            if (changed)
+            {
+                firmComponent.AvailabilityMissedForLastInterval = availabilityMissedForLastInterval;
+                firmComponent.AvailabilityMissedSinceCleared = availabilityMissedSinceCleared;
+                firmComponent.ErrorCountSinceCleared = errorCountSinceCleared;
+
+                await TableStore.Operation_Update(binder, log, firmComponent, "%FirmComponent_Table_Name%");
+            }
+        }
+
+        /// <summary>
+        /// Perform a batch update of firm components
+        /// A Batch can only be performed for a specific firm at a time. Storage Partition key must be the same for a batch.
+        /// </summary>
+        /// <param name="binder"></param>
+        /// <param name="log"></param>
+        /// <param name="firmIds"></param>
+        /// <param name="firmComponents"></param>
+        /// <returns></returns>
+        public static async Task PerformBatchUpdateForFirmComponents(Binder binder, ILogger log, List<string> firmIds, List<FirmComponentEntity> firmComponents)
+        {
+            //Update Components per firm
+
+            foreach (var firmId in firmIds)
+            {
+                var componentsBatch = firmComponents
+                    .Where(x => x.PartitionKey == firmId)
+                    .ToList();
+
+                if (componentsBatch.Any())
+                {
+                    await FirmComponentTableStore.BatchUpdateFirmComponents(binder, log, componentsBatch);
+                }
             }
         }
     }

@@ -91,19 +91,10 @@ namespace heartbeat_function_app.Common
 
             }
 
+            if (!modifiedFirmComponents.Any()) return;
+
             //Update Components per firm
-
-            foreach (var activeFirmId in activeFirmIdList)
-            {
-                var componentsBatch = modifiedFirmComponents
-                    .Where(x => x.PartitionKey == activeFirmId)
-                    .ToList();
-
-                if (componentsBatch.Any())
-                {
-                    await FirmComponentTableStore.BatchUpdateFirmComponents(binder, log, componentsBatch);
-                }
-            }
+            await FirmComponentCommon.PerformBatchUpdateForFirmComponents(binder, log, activeFirmIdList, modifiedFirmComponents);
         }
     }
 }
