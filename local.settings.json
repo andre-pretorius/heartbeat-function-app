@@ -8,7 +8,8 @@
     "FirmComponent_Table_Name": "<Placeholder>",
     "Availability_Table_Name": "<Placeholder>",
     "Event_Table_Name": "<Placeholder>",
-    "Fault_Table_Name": "<Placeholder>"
+    "Fault_Table_Name": "<Placeholder>",
+    "Log_Processor_Exception_Table_Name": "<Placeholder>"
   },
   "ConnectionStrings": {
     "Queue_Connection_String": "<Placeholder>",
