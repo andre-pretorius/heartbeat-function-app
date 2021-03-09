@@ -11,19 +11,32 @@ namespace heartbeat_function_app
 {
     public static class ResetEntityFlags
     {
+        /// <summary>
+        /// Function parameters are as follows
+        /// ?type=a - Perform Reset Flags For All Firms
+        /// ?type=f&firm=0 - Perform Reset Flags For A Firm
+        /// ?type=c&firm=0&component=0 - Perform Reset Flags For A Firm Component
+        /// </summary>
+        /// <returns>
+        /// 200 Ok - If no problems encountered
+        /// 400 Bad request - If invalid parameters provided
+        /// 400 Bad request - If errors encountered
+        /// </returns>
         [FunctionName("ResetEntityFlags")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
+            [HttpTrigger(AuthorizationLevel.Function, "put", Route = null)] HttpRequest req,
             Binder binder,
             ILogger log)
         {
-            log.LogInformation("C# HTTP trigger ResetEntityFlags.");
+            #if DEBUG
+                log.LogInformation("C# HTTP trigger ResetEntityFlags.");
+            #endif
 
             string operation = req.Query["type"];
 
-            string firmId = req.Query["firmId"];
+            string firmId = req.Query["firm"];
 
-            string firmComponentId = req.Query["firmComponentId"];
+            string firmComponentId = req.Query["component"];
 
             if (string.IsNullOrWhiteSpace(operation))
                 return new BadRequestResult();
@@ -34,6 +47,8 @@ namespace heartbeat_function_app
                     return new BadRequestResult();
 
                 await FirmComponentCommon.PerformResetFlagsForAllFirms(binder, log);
+
+                return new OkResult();
             }
             else if (operation.Equals("f", StringComparison.CurrentCultureIgnoreCase))
             {
@@ -41,6 +56,8 @@ namespace heartbeat_function_app
                     return new BadRequestResult();
 
                 await FirmComponentCommon.PerformResetFlagsForAFirm(binder, log, firmId);
+
+                return new OkResult();
             }
             else if (operation.Equals("c", StringComparison.CurrentCultureIgnoreCase))
             {
@@ -48,7 +65,15 @@ namespace heartbeat_function_app
                     return new BadRequestResult();
 
                 await FirmComponentCommon.PerformResetFlagsForAFirmComponent(binder, log, firmId, firmComponentId);
+
+                return new OkResult();
             }
+
+            #if DEBUG
+                log.LogInformation("ResetEntityFlags request type invalid");
+            #endif
+
+            //Todo Report Failure or escalate
 
             return new BadRequestResult();
         }
