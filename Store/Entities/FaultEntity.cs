@@ -1,8 +1,9 @@
-﻿using Microsoft.Azure.Cosmos.Table;
+﻿using System.Text;
+using Microsoft.Azure.Cosmos.Table;
 
-namespace heartbeat_function_app.Entities
+namespace heartbeat_function_app.Store.Entities
 {
-    public class FaultEntity : TableEntity
+    public class FaultEntity: TableEntity
     {
         public FaultEntity()
         {
@@ -40,5 +41,20 @@ namespace heartbeat_function_app.Entities
         public string FirmId { get; set; }
         public string FirmName { get; set; }
 
+        public string EntityDescription()
+        {
+            var sb = new StringBuilder();
+            sb.Append($"PartitionKey:{PartitionKey}");
+            sb.Append($"RowKey:{RowKey}");
+            sb.Append($"FaultCode:{FaultCode}");
+            sb.Append($"FaultTitle:{FaultTitle}");
+            sb.Append($"FaultDescription:{FaultDescription}");
+            sb.Append($"ApplicationInformation:{ApplicationInformation}");
+            sb.Append($"DatabaseInformation:{DatabaseInformation}");
+            sb.Append($"FirmId:{FirmId}");
+            sb.Append($"FirmName:{FirmName}");
+
+            return sb.ToString();
+        }
     }
 }

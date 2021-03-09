@@ -1,9 +1,9 @@
-﻿namespace heartbeat_function_app.Messages
+﻿using MessageVersionInterfaceV1 = heartbeat_function_app.Messages.Interfaces.V1;
+
+namespace heartbeat_function_app.Messages
 {
-    public class FaultMessage
+    public class FaultMessage: BaseMessage, MessageVersionInterfaceV1.IFaultMessage
     {
-        public string FirmId { get; set; }
-        public string ComponentId { get; set; }
         public string FaultCode { get; set; }
         public string FaultTitle { get; set; }
         public string FaultDescription { get; set; }

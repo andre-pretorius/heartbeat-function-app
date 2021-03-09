@@ -1,9 +1,9 @@
-﻿namespace heartbeat_function_app.Messages
+﻿using MessageVersionInterfaceV1 = heartbeat_function_app.Messages.Interfaces.V1;
+
+namespace heartbeat_function_app.Messages
 {
-    public class EventMessage
+    public class EventMessage: BaseMessage, MessageVersionInterfaceV1.IEventMessage
     {
-        public string FirmId { get; set; }
-        public string ComponentId { get; set; }
         public string EventCode { get; set; }
         public string EventTitle { get; set; }
         public string EventDescription { get; set; }
